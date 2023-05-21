@@ -1,0 +1,215 @@
+#define BLYNK_PRINT Serial    
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+#define BLYNK_TEMPLATE_ID "TMPL34WVw1mg9"
+#define BLYNK_TEMPLATE_NAME "Car parking"
+#define BLYNK_AUTH_TOKEN "lHCDfKGgT5XT1LXA17CWJ3LfKJiJl4Fo"
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "IOT";
+char pass[] = "123456789";
+char auth[] = BLYNK_AUTH_TOKEN;
+ #include <Wire.h> 
+#include <LCD_I2C.h>
+LCD_I2C lcd(0x27);
+//Mux control pins
+int s0 = D8;
+int s1 = D7;
+int s2 = D6;
+int s3 = D5;
+
+//Mux in "SIG" pin
+int SIG_pin = A0;
+#define float1 D0
+
+float volt;
+int ntu,phv,f1,sensorPin;
+
+#include <Servo.h>
+
+Servo myservo;  // create servo object to control a servo
+// twelve servo objects can be created on most boards
+
+
+
+int count = 0;                                          // count = 0
+char input[12];
+char reader1[]= "54002512E281"; 
+char reader2[]= "540024444D79"; 
+char reader3[]= "540024FD25A8"; 
+
+int card1amt=500,card2amt=500,card3amt=500;
+void setup()
+{
+    Serial.begin(9600);
+      myservo.attach(D0);
+    Wire.begin(); // gpio 2 and gpio 0 which are D4, and D3
+    pinMode(float1,INPUT_PULLUP);
+  lcd.begin();                 //Init the LCD
+  lcd.backlight();            //Activate backlight     
+  lcd.home();  
+  lcd.setCursor(0,0);lcd.print("WATER QUALITY");
+  lcd.setCursor(0,1);lcd.print(" MONITORING");
+  delay(3000);
+lcd.clear();
+pinMode(s0, OUTPUT); 
+  pinMode(s1, OUTPUT); 
+  pinMode(s2, OUTPUT); 
+  pinMode(s3, OUTPUT); 
+
+  digitalWrite(s0, LOW);
+  digitalWrite(s1, LOW);
+  digitalWrite(s2, LOW);
+  digitalWrite(s3, LOW);
+  myservo.write(0); 
+   Blynk.begin(auth, ssid, pass, "blynk.cloud", 80);
+}
+ 
+void loop()
+{
+    rfid();
+if(readMux(3)<=100){Serial.println("GAte open");
+myservo.write(20); 
+  Blynk.virtualWrite(V5,"GATE OPEN");
+}
+
+if(readMux(4)<=100){Serial.println("GAte CLOSED");
+myservo.write(150); 
+Blynk.virtualWrite(V5,"GATE CLOSE");
+}
+lcd.setCursor(0,0);
+lcd.print("S1:");
+if(readMux(0)<=100){lcd.print("FULL");Blynk.virtualWrite(V0,1);}
+else{lcd.print("FREE");Blynk.virtualWrite(V0,0);}
+
+
+lcd.setCursor(8,0);
+lcd.print("S2:");
+if(readMux(1)<=100){lcd.print("FULL");Blynk.virtualWrite(V1,1);}
+else{lcd.print("FREE");Blynk.virtualWrite(V1,0);}
+
+lcd.setCursor(0,1);
+lcd.print("S3:");
+if(readMux(2)<=100){lcd.print("FULL");Blynk.virtualWrite(V2,1);}
+else{lcd.print("FREE");Blynk.virtualWrite(V2,0);}
+
+
+
+delay(200);
+}
+
+float readMux(int channel){
+  int controlPin[] = {s0, s1, s2, s3};
+
+  int muxChannel[16][4]={
+    {0,0,0,0}, //channel 0
+    {1,0,0,0}, //channel 1
+    {0,1,0,0}, //channel 2
+    {1,1,0,0}, //channel 3
+    {0,0,1,0}, //channel 4
+    {1,0,1,0}, //channel 5
+    {0,1,1,0}, //channel 6
+    {1,1,1,0}, //channel 7
+    {0,0,0,1}, //channel 8
+    {1,0,0,1}, //channel 9
+    {0,1,0,1}, //channel 10
+    {1,1,0,1}, //channel 11
+    {0,0,1,1}, //channel 12
+    {1,0,1,1}, //channel 13
+    {0,1,1,1}, //channel 14
+    {1,1,1,1}  //channel 15
+  };
+
+  //loop through the 4 sig
+  for(int i = 0; i < 4; i ++){
+    digitalWrite(controlPin[i], muxChannel[channel][i]);
+  }
+
+  //read the value at the SIG pin
+  int val = analogRead(SIG_pin);
+
+  //return the value
+ // float voltage = (val * 5.0) / 1024.0;
+  return val;
+}
+
+
+
+
+void rfid()
+  {
+    if(Serial.available())
+   {
+      count = 0;
+      while(Serial.available() && count < 12)          // Read 12 characters and store them in input array
+      {
+         input[count] = Serial.read();
+         count++;
+         delay(5);
+      }
+      Serial.print(input);                             // Print RFID tag number 
+      
+   }
+      if(strncmp(input,reader1,12) == 0)
+      {
+        Blynk.virtualWrite(V5,"CARD 1 AMOUNT RS 50 DEDUCTED");
+         lcd.clear();
+         lcd.setCursor(0,0);
+         lcd.print("AMOUNT RS 50 ");
+         lcd.setCursor(0,1);
+         lcd.print("  DEDUCTED");
+         card1amt=(card1amt-50);
+         input[1]='2';
+         delay(2000);
+         lcd.clear();
+         lcd.setCursor(0,0);
+         lcd.print("BALANCE :");
+         lcd.print(card1amt);
+         delay(2000);
+         lcd.clear();
+          }
+
+           if(strncmp(input,reader2,12) == 0)
+      {
+          Blynk.virtualWrite(V5,"CARD 2 AMOUNT RS 50 DEDUCTED");
+         lcd.clear();
+         lcd.setCursor(0,0);
+         lcd.print("AMOUNT RS 50 ");
+         lcd.setCursor(0,1);
+         lcd.print("  DEDUCTED");
+         card2amt=(card2amt-50);
+         input[1]='2';
+         Serial.println("amount 2 debited");delay(2000);
+         lcd.clear();
+         lcd.setCursor(0,0);
+         lcd.print("BALANCE :");
+         lcd.print(card2amt);
+         Serial.print("card 2 amount:");
+         Serial.println(card2amt);
+         delay(2000);
+         lcd.clear();
+          }
+
+           if(strncmp(input,reader3,12) == 0)
+      {
+          Blynk.virtualWrite(V5,"CARD 3 AMOUNT RS 50 DEDUCTED");
+       lcd.clear();
+         lcd.setCursor(0,0);
+         lcd.print("AMOUNT RS 50 ");
+         lcd.setCursor(0,1);
+         lcd.print("  DEDUCTED");
+         card3amt=(card3amt-50);
+         Serial.println("amount 3 debited");
+         input[1]='2';
+         delay(2000);
+         lcd.clear();
+         lcd.setCursor(0,0);
+         lcd.print("BALANCE :");
+         lcd.print(card3amt);
+            Serial.print("card 3 amount:");
+         Serial.println(card3amt);
+         delay(2000);
+         lcd.clear();
+          }
+      }
